@@ -57,31 +57,33 @@ module ControlUnit (
     always_comb begin
         next_state = state;
         case (state)
-            FETCH: next_state = DECODE;
-            DECODE:
-            case (opcode)
-                `OP_TYPE_R:  next_state = R_EXE;
-                `OP_TYPE_I:  next_state = I_EXE;
-                `OP_TYPE_S:  next_state = S_EXE;
-                `OP_TYPE_L:  next_state = L_EXE;
-                `OP_TYPE_B:  next_state = B_EXE;
-                `OP_TYPE_LU: next_state = LU_EXE;
-                `OP_TYPE_AU: next_state = AU_EXE;
-                `OP_TYPE_J:  next_state = J_EXE;
-                `OP_TYPE_JL: next_state = JL_EXE;
-            endcase
-            R_EXE: next_state = FETCH;
-            I_EXE: next_state = FETCH;
-            B_EXE: next_state = FETCH;
+            FETCH:  next_state = DECODE;
+            DECODE: begin
+                next_state = R_EXE;
+                case (opcode)
+                    `OP_TYPE_R:  next_state = R_EXE;
+                    `OP_TYPE_I:  next_state = I_EXE;
+                    `OP_TYPE_S:  next_state = S_EXE;
+                    `OP_TYPE_L:  next_state = L_EXE;
+                    `OP_TYPE_B:  next_state = B_EXE;
+                    `OP_TYPE_LU: next_state = LU_EXE;
+                    `OP_TYPE_AU: next_state = AU_EXE;
+                    `OP_TYPE_J:  next_state = J_EXE;
+                    `OP_TYPE_JL: next_state = JL_EXE;
+                endcase
+            end
+            R_EXE:  next_state = FETCH;
+            I_EXE:  next_state = FETCH;
+            B_EXE:  next_state = FETCH;
             LU_EXE: next_state = FETCH;
             AU_EXE: next_state = FETCH;
-            J_EXE: next_state = FETCH;
+            J_EXE:  next_state = FETCH;
             JL_EXE: next_state = FETCH;
-            S_EXE: next_state = S_MEM;
-            L_EXE: next_state = L_MEM;
-
+            
+            S_EXE:  next_state = S_MEM;
             S_MEM: next_state = FETCH;
 
+            L_EXE:  next_state = L_MEM;
             L_MEM: next_state = L_WB;
             L_WB:  next_state = FETCH;
         endcase
