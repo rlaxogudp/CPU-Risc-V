@@ -1,44 +1,81 @@
-# Single-Cycle RISC-V RV32I Processor
+# ⚡ Single-Cycle RISC-V RV32I Processor
 
-A simplified **single-cycle** implementation of a **RISC-V (RV32I)** processor core, designed in SystemVerilog.
+본 프로젝트는 SystemVerilog로 구현된 **단일 사이클 (Single-Cycle)** RISC-V RV32I 프로세서 코어입니다. 모든 명령어는 클럭 주기에 관계없이 **단 하나의 클럭 사이클** 내에 완료되는 가장 직관적인 CPU 구조입니다.
 
-This project implements the core logic for executing a subset of the RISC-V Instruction Set Architecture (ISA) where every instruction completes its execution in a single clock cycle.
+## 🗂️ 프로젝트 구조 (Code Structure)
 
-## 🗂️ Project Structure
+| File Name | Description | 
+ | ----- | ----- | 
+| `MCU.sv` | **최상위 모듈**입니다. CPU 코어, ROM (명령어 메모리), RAM (데이터 메모리)을 통합합니다. | 
+| `CPU_RV32I.sv` | **CPU 코어**. Control Unit과 Data Path를 연결합니다. | 
+| `DataPath.sv` | **데이터 경로**입니다. PC, 레지스터 파일, ALU, Mux 등 모든 기능 블록이 **파이프라인 레지스터 없이** 조합 논리로 연결됩니다. | 
+| `ControlUnit.sv` | 명령어 Opcode에 기반하여 **모든 제어 신호**를 단일 사이클 내에 생성합니다. (FSM 불필요) | 
+| `RAM.sv` | 데이터 메모리. 바이트, 하프워드, 워드 쓰기를 지원합니다. | 
+| `ROM.sv` | 명령어 메모리. `code.mem` 파일의 명령어를 읽습니다. | 
+| `defines.sv` | ALU 연산 및 RISC-V Opcode 상수가 정의된 헤더 파일입니다. | 
+| `code.mem` | 테스트를 위한 RISC-V 기계어 코드가 포함된 파일입니다. | 
 
-| File Name | Description |
-| :--- | :--- |
-| `MCU.sv` | The **Top-Level Module**. Instantiates the CPU, ROM (Instruction Memory), and RAM (Data Memory). |
-| `CPU_RV32I.sv` | The **CPU Core**. Connects the Control Unit and Data Path. |
-| `DataPath.sv` | Contains the **main data flow components** (Register File, ALU, PC, Adders, Muxes, Imm-Extend). |
-| `ControlUnit.sv` | Generates all **control signals** for the data path based on the instruction opcode and function fields. |
-| `RAM.sv` | Data Memory module. Supports Byte, Half-word, and Word access (`LB/LH/LW`, `LBU/LHU`, `SB/SH/SW`) with the `strb` signal. |
-| `ROM.sv` | Instruction Memory module. Reads the instruction code from `code.mem`. |
-| `defines.sv` | SystemVerilog header file containing constants for ALU operations, branch codes, and instruction opcodes. |
-| `code.mem` | Hexadecimal file containing the machine code for a test program. |
+## ⚙️ 핵심 특징 (Key Features)
 
-## ⚙️ Key Features (Single-Cycle Architecture)
+* **아키텍처:** **단일 사이클**. 단순성, 빠른 개발 속도가 장점입니다. 
+* **성능 제한:** 클럭 주기는 **가장 느린 명령어 (예: `LW`)**의 실행 시간(Critical Path)에 의해 결정됩니다.
+* **RISC-V ISA 지원:** Base Integer Instruction Set (`RV32I`)의 모든 핵심 명령어 유형(R, I, S, B, U, J Type)을 지원합니다.
 
-* [cite_start]**Architecture:** Single-Cycle.
-    * All necessary combinational components (PC, Instruction Fetch, Decode, Execute, Memory Access, Write Back) are connected sequentially without pipeline registers, completing an instruction per clock cycle.
-* **Instruction Set:** RISC-V Base Integer Instruction Set (`RV32I`).
-* **Instruction Types Implemented:**
-    * [cite_start]**R-Type** (Arithmetic/Logic): `ADD`, `SUB`, `SLL`, `SRL`, `SRA`, `SLT`, `SLTU`, `XOR`, `OR`, `AND`[cite: 60, 61, 62, 63, 64, 65].
-    * [cite_start]**I-Type** (Immediate/Load): `ADDI`, `SLTI`, `XORI`, `ORI`, `ANDI`, `SLLI`, `SRLI`, `SRAI`, `LB`, `LH`, `LW`, `LBU`, `LHU`[cite: 83, 84, 101, 102].
-    * [cite_start]**S-Type** (Store): `SB`, `SH`, `SW`[cite: 84, 98, 99].
-    * [cite_start]**B-Type** (Branch): `BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`[cite: 66, 67, 68].
-    * [cite_start]**U-Type** (Upper Immediate): `LUI`, `AUIPC`[cite: 86].
-    * [cite_start]**J-Type** (Jump): `JAL`, `JALR`[cite: 87, 88].
-* **Memory Access:**
-    * [cite_start]Separate Instruction Memory (ROM) and Data Memory (RAM)[cite: 3, 4, 6, 89].
-    * [cite_start]The Data RAM supports **byte, half-word, and word** memory operations using a `strb` signal for fine-grained control[cite: 9, 11, 13, 15].
+### 지원 명령어 유형
+
+| 유형 | 설명 | 예시 명령어 | 
+ | ----- | ----- | ----- | 
+| **R-Type** | 레지스터 간 산술/논리 | `ADD`, `SUB`, `SLL`, `SLT` | 
+| **I-Type** | 즉시값 연산/로드 | `ADDI`, `LW`, `JALR` | 
+| **S-Type** | 메모리 저장 | `SB`, `SH`, `SW` | 
+| **B-Type** | 조건부 분기 | `BEQ`, `BNE`, `BLT` | 
+| **U/J-Type** | 상위 즉시값/점프 | `LUI`, `AUIPC`, `JAL` | 
 
 ## 💻 Data Path Overview
 
-The `DataPath.sv` module connects the main functional blocks:
+1. **PC (Program Counter):** `U_PC` 레지스터는 다음 클럭에 `PC + 4` 또는 분기/점프 주소로 업데이트됩니다.
+2. **레지스터 파일:** `U_RegFile`에서 명령어가 요구하는 피연산자 데이터를 **즉시** 읽어옵니다.
+3. **ALU (산술 논리 장치):** `U_ALU`가 모든 계산(산술, 논리, 주소 계산, 분기 비교)을 수행합니다.
+4. **Write Back:** `U_RFWDSrcMux`가 ALU 결과, 메모리 데이터 또는 PC 값을 선택하여 레지스터 파일에 **쓰기** 동작을 완료합니다.
+```eof
 
-1.  [cite_start]**Program Counter (PC):** The `U_PC` register holds the address of the current instruction[cite: 52].
-2.  [cite_start]**Instruction Decode & Register File:** Instructions are decoded and read data from the `U_RegFile`[cite: 43].
-3.  [cite_start]**ALU:** The `U_ALU` performs arithmetic, logic, and branch comparison operations[cite: 45, 59].
-4.  [cite_start]**PC Update:** The `U_PCSrcMux` selects the next PC address based on sequential flow (`PC + 4`), a branch/jump target (`PC_Imm_AdderResult`), or a `JALR` target[cite: 51, 43].
-5.  [cite_start]**Write Back:** The `U_RFWDSrcMux` selects the data written back to the register file (`aluResult`, `busRData`, `immExt`, or PC values for `JAL/JALR`)[cite: 46].
+***
+
+## 2. 멀티 사이클 RISC-V CPU README 파일
+
+```markdown:Multi-Cycle RISC-V RV32I Processor:README_multi_cycle.md
+# ⏱️ Multi-Cycle RISC-V RV32I Processor
+
+본 프로젝트는 SystemVerilog로 구현된 **멀티 사이클 (Multi-Cycle)** RISC-V RV32I 프로세서 코어입니다. 명령어를 여러 개의 작은 단계(사이클)로 분할하여 실행하며, 기능 블록(예: ALU)을 재사용하여 하드웨어 효율성을 극대화한 구조입니다.
+
+## 🗂️ 프로젝트 구조 (Code Structure)
+
+| File Name | Description |
+| :--- | :--- |
+| `MCU.sv` | **최상위 모듈**입니다. CPU 코어, ROM (명령어 메모리), RAM (데이터 메모리)을 통합합니다. |
+| `CPU_RV32I.sv` | **CPU 코어**. Control Unit과 Data Path를 연결합니다. |
+| `DataPath.sv` | **데이터 경로**입니다. 기능 블록을 재사용하며, 각 단계의 결과를 저장하기 위한 **중간 레지스터**가 포함됩니다. (IR, A, B, ALUOut, MDR 등) |
+| `ControlUnit.sv` | **FSM (Finite State Machine)**으로 구현되어, **현재 상태(State)**에 따라 매 클럭마다 다른 제어 신호를 생성하고 다음 상태로 전이합니다. |
+| `RAM.sv` | 데이터 메모리. 바이트, 하프워드, 워드 쓰기를 지원합니다. |
+| `ROM.sv` | 명령어 메모리. `code.mem` 파일의 명령어를 읽습니다. |
+| `defines.sv` | ALU 연산 및 RISC-V Opcode 상수가 정의된 헤더 파일입니다. |
+| `code.mem` | 테스트를 위한 RISC-V 기계어 코드가 포함된 파일입니다. |
+
+## ⚙️ 핵심 특징 (Key Features)
+
+* **아키텍처:** **멀티 사이클**. 명령어의 유형에 따라 실행에 필요한 사이클 수가 다릅니다. 
+* **클럭 속도:** 클럭 주기는 **가장 느린 단계(Phase)**의 실행 시간에 의해 결정되므로, 단일 사이클에 비해 클럭 속도를 **크게 높일 수 있습니다.**
+* **제어 유닛:** 명령어의 모든 실행 단계를 관리하는 **FSM**이 `ControlUnit.sv`의 핵심입니다.
+
+### FSM 주요 단계
+1.  **Fetch (인출):** 명령어 메모리에서 명령어를 읽고 PC를 업데이트합니다.
+2.  **Decode (디코드):** 레지스터 파일에서 피연산자를 읽고 제어 신호를 결정합니다.
+3.  **Execute (실행):** ALU를 사용하여 연산 또는 주소 계산을 수행합니다. (명령어에 따라 1개 이상의 사이클 소요)
+4.  **Memory (메모리):** 데이터 메모리에 접근하여 읽기/쓰기를 수행합니다.
+5.  **Write Back (쓰기):** 최종 결과를 레지스터 파일에 기록합니다.
+
+## 💻 Data Path Overview
+
+* **공유 자원:** ALU와 Mux는 여러 단계에서 주소 계산, 연산 실행, 분기 비교 등의 다양한 용도로 재사용됩니다.
+* **중간 레지스터:** `Instruction Register (IR)`, `A/B Register`, `ALUOut Register` 등의 레지스터를 사용하여 이전 사이클의 결과를 저장하고 다음 사이클로 전달합니다. 이를 통해 긴 조합 논리 경로를 짧게 분할합니다.
+```eof
