@@ -1,89 +1,113 @@
-📚 RISC-V RV32I Processor Architecture Overview
+📚 SystemVerilog를 이용한 RISC-V CPU 설계
 
-본 프로젝트는 SystemVerilog로 구현된 RISC-V (RV32I) 프로세서 코어의 아키텍처를 다룹니다. 특히, **단일 사이클(Single-Cycle)**과 멀티 사이클(Multi-Cycle) 두 가지 주요 구현 방식을 비교하고 설명합니다.
+본 프로젝트는 SystemVerilog를 사용하여 RISC-V의 32비트 정수 명령어 집합(RV32I)을 구현한 CPU 코어 설계 프로젝트입니다.
 
-🗂️ 공통 프로젝트 구조 (Common Code Structure)
+발표자: 김태형, 김호준, 안유한
 
-File Name
+1. 📝 프로젝트 개요
 
-Description
+목표: RISC-V ISA (명령어 집합 구조)를 이해하고, SystemVerilog를 사용해 실제 동작하는 RV32I CPU 코어를 설계 및 검증합니다.
 
-MCU.sv
+ISA: RISC-V (오픈소스 표준 ISA)
 
-최상위 모듈입니다. [cite_start]CPU 코어, ROM (명령어 메모리), RAM (데이터 메모리)을 통합합니다. [cite: 109, 110]
+설계 언어: SystemVerilog
 
-CPU_RV32I.sv
+개발 환경: Vivado
 
-CPU 코어. [cite_start]Control Unit과 Data Path를 연결합니다. [cite: 108]
+2. 🏛️ CPU 아키텍처 (RV32I Core)
 
-DataPath.sv
+본 CPU 코어는 명령어를 해독하는 Control Unit과 실제 연산을 수행하는 DataPath로 구성됩니다.
 
-데이터 경로. PC, 레지스터 파일, ALU, Mux 등 핵심 컴포넌트를 포함합니다. (구현 방식에 따라 내부 구조가 달라집니다.) [cite_start][cite: 43]
+주요 구성 요소
 
-ControlUnit.sv
+Control Unit (제어 유닛):
 
-명령어 Opcode에 기반하여 제어 신호를 생성합니다. (구현 방식에 따라 조합 논리 또는 FSM으로 구현됨) [cite_start][cite: 18]
+명령어의 Opcode, Funct3, Funct7 필드를 입력받아 해독합니다.
 
-RAM.sv
+RegFile_we, aluSrcSel, aluControl 등 CPU 각 부분이 동작하는 데 필요한 모든 제어 신호를 생성합니다.
 
-데이터 메모리. [cite_start]바이트, 하프워드, 워드 쓰기를 지원합니다. [cite: 30, 32]
+DataPath (데이터 경로):
 
-ROM.sv
+PC (Program Counter): 실행할 다음 명령어의 주소를 가리킵니다.
 
-명령어 메모리. [cite_start]code.mem 파일로부터 명령어를 읽어옵니다. [cite: 2]
+ROM (Instruction Memory): CPU가 실행할 명령어를 보관하는 메모리입니다.
 
-defines.sv
+Register File (레지스터 파일): 32개의 범용 레지스터(x0-x31)를 포함하며, 연산에 사용할 데이터를 읽거나 연산 결과를 저장합니다.
 
-[cite_start]ALU 연산 및 RISC-V Opcode 상수가 정의된 헤더 파일입니다. [cite: 17]
+ALU (Arithmetic Logic Unit): ADD, SUB, AND, OR 등 실제 산술 및 논리 연산을 수행합니다.
 
-code.mem
+Extend: I-Type, S-Type 등에서 사용되는 즉시값(immediate)을 32비트로 부호 확장합니다.
 
-테스트용 RISC-V 기계어 코드가 포함된 파일입니다.
+RAM (Data Memory): Load 및 Store 명령어 실행 시 데이터를 저장하거나 불러오는 역할을 합니다.
 
-1. ⚡ 단일 사이클 CPU (Single-Cycle)
+3. 🧮 지원 명령어 유형 (RV32I)
 
-단일 사이클 아키텍처는 가장 직관적인 구현 방식입니다. 모든 명령어가 단 하나의 클럭 사이클 내에 인출부터 쓰기까지의 모든 단계를 완료합니다.
+RV32I의 기본 명령어 포맷인 6가지 유형(R, I, S, B, U, J)을 구현하고 시뮬레이션을 통해 검증했습니다.
 
-특징 및 구조
+1. R-Type (Register-Type)
 
-아키텍처: 단일 사이클. 단순하며 빠른 설계가 가능합니다. 
+설명: 레지스터와 레지스터 간의 연산을 수행합니다.
 
-성능 제한: 클럭 주기는 **가장 느린 명령어(Critical Path)**의 실행 시간에 의해 결정됩니다.
+구현 명령어: ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
 
-제어: ControlUnit.sv는 FSM(상태 머신) 없이, Opcode에 따라 모든 제어 신호를 조합 논리로 즉시 생성합니다.
+데이터 경로: 두 개의 소스 레지스터(rs1, rs2)에서 값을 읽어 ALU에서 연산한 뒤, 결과를 목적지 레지스터(rd)에 씁니다.
 
-Data Path (DataPath.sv): 모든 기능 블록이 파이프라인 레지스터 없이 직접 연결됩니다.
+2. I-Type (Immediate-Type)
 
-지원 명령어 유형 (RV32I)
+설명: 레지스터와 즉시값(imm) 간의 연산 또는 Load 명령어를 수행합니다.
 
-| 유형 | 설명 | 예시 명령어 | 
-| :--- | :--- | :--- |
-| R-Type | [cite_start]레지스터 간 산술/논리 [cite: 17] | ADD, SUB, SLL |
-| I-Type | [cite_start]즉시값 연산/로드 [cite: 17] | ADDI, LW, JALR |
-| S-Type | [cite_start]메모리 저장 [cite: 17] | SB, SH, SW |
-| B-Type | [cite_start]조건부 분기 [cite: 17] | BEQ, BNE, BLT |
-| U/J-Type | [cite_start]상위 즉시값/점프 [cite: 17] | LUI, AUIPC, JAL |
+구현 명령어:
 
-2. ⏱️ 멀티 사이클 CPU (Multi-Cycle)
+산술/논리: ADDI, SLTI, SLTIU, XORI, ORI, ANDI
 
-멀티 사이클 아키텍처는 명령어를 여러 단계로 나누어 실행함으로써 하드웨어 자원을 재사용하고 클럭 속도를 높입니다.
+시프트: SLLI, SRLI, SRAI
 
-특징 및 구조
+Load: LB, LH, LW, LBU, LHU (L-Type)
 
-아키텍처: 멀티 사이클. 명령어에 따라 실행 사이클 수가 다릅니다. 
+JALR: JALR (J-Type 변형)
 
-클럭 속도: 클럭 주기는 **가장 느린 단계(Phase)**의 실행 시간에 의해 결정되므로, 단일 사이클보다 훨씬 빠른 클럭 속도를 가질 수 있습니다.
+3. S-Type (Store-Type)
 
-제어: ControlUnit.sv는 **FSM (Finite State Machine)**으로 구현되어, 현재 **상태(State)**에 따라 매 클럭마다 다른 제어 신호를 순차적으로 생성합니다.
+설명: 레지스터의 값을 메모리에 저장합니다.
 
-Data Path (DataPath.sv):
-    * 공유 자원: ALU와 Mux 등의 기능 블록이 여러 단계에서 재사용됩니다.
-    * 중간 레지스터: Instruction Register (IR), ALUOut Register, MDR (Memory Data Register) 등 각 단계의 출력을 저장하는 레지스터를 사용하여 긴 조합 논리 경로를 짧게 분할합니다.
+구현 명령어: SB, SH, SW
 
-FSM 주요 단계 (예시)
+데이터 경로: rs1의 값과 imm을 더해 메모리 주소를 계산하고, rs2의 값을 해당 주소의 RAM에 씁니다.
 
-1.  Fetch (인출): 명령어 메모리 접근
-2.  Decode (디코드): 레지스터 피연산자 읽기
-3.  Execute (실행): ALU 연산 또는 주소 계산
-4.  Memory (메모리): 데이터 메모리 접근
-5.  Write Back (쓰기): 레지스터 파일에 최종 결과 기록
+4. B-Type (Branch-Type)
+
+설명: 두 레지스터의 값을 비교하여 조건에 따라 분기(점프)합니다.
+
+구현 명령어: BEQ, BNE, BLT, BGE, BLTU, BGEU
+
+데이터 경로: rs1과 rs2를 비교한 결과(btaken)가 참이면, PC에 imm만큼 더해 프로그램의 실행 흐름을 변경합니다.
+
+5. U-Type (Upper-Immediate-Type)
+
+설명: 20비트의 즉시값을 레지스터의 상위 20비트에 로드합니다.
+
+구현 명령어: LUI, AUIPC
+
+LUI (Load Upper Immediate): imm 값을 12비트 왼쪽 시프트하여 rd에 저장합니다.
+
+AUIPC (Add Upper Immediate to PC): imm 값을 12비트 왼쪽 시프트하여 현재 PC 값과 더한 결과를 rd에 저장합니다.
+
+6. J-Type (Jump-Type)
+
+설명: 무조건 점프를 수행하며, 복귀 주소를 레지스터에 저장합니다.
+
+구현 명령어: JAL
+
+데이터 경로: PC + 4 (다음 명령어 주소)를 rd에 저장하고, PC에 imm 값을 더해 해당 주소로 점프합니다. JALR (I-Type 포맷)은 rs1 + imm 주소로 점프합니다.
+
+4. 🔬 검증 환경 (Testbench)
+
+명령어 타입별로 UVM(Universal Verification Methodology)과 유사한 구조의 SystemVerilog 테스트벤치 환경을 구축하여 검증을 수행했습니다.
+
+Generator: 랜덤한 제약 조건으로 transaction (명령어)을 생성합니다.
+
+Driver: Generator로부터 transaction을 받아 DUT (CPU)의 인터페이스로 신호를 인가합니다.
+
+Monitor: DUT의 출력 신호(메모리 주소, 레지스터 쓰기 값 등)를 관찰(샘플링)합니다.
+
+Scoreboard: Generator가 transaction을 기반으로 계산한 예상 결과와 Monitor가 관찰한 실제 결과를 비교하여, 명령어의 동작이 정확한지 PASS 또는 FAIL로 판정합니다.
